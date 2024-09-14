@@ -25,7 +25,8 @@ local function get_reply_dir(build_dir) return build_dir / '.cmake' / 'api' / 'v
 ---@param codemodel_target table
 ---@param reply_dir table
 ---@return table
-local function get_target_info(codemodel_target, reply_dir) return vim.json.decode((reply_dir / codemodel_target['jsonFile']):read()) end
+local function get_target_info(codemodel_target, reply_dir) return vim.json.decode((reply_dir / codemodel_target['jsonFile'])
+  :read()) end
 
 --- Creates query files to access information about targets after CMake configuration.
 ---@param build_dir table
@@ -66,7 +67,8 @@ local function get_target_names()
   local project_config = ProjectConfig.new()
   local build_dir = parse_dir(project_config.cmake.build_dir, project_config.cmake.build_type)
   if not build_dir:is_dir() then
-    utils.notify(string.format('Build directory "%s" does not exist, you need to run "configure" task first', build_dir), vim.log.levels.ERROR)
+    utils.notify(string.format('Build directory "%s" does not exist, you need to run "configure" task first', build_dir),
+      vim.log.levels.ERROR)
     return nil
   end
 
@@ -82,6 +84,39 @@ local function get_target_names()
     local target_name = target_info['name']
     if target_name:find('_autogen') == nil then
       table.insert(targets, target_name)
+    end
+  end
+
+  return targets
+end
+
+---@return table?
+local function get_executable_target_names()
+  local project_config = ProjectConfig.new()
+  local build_dir = parse_dir(project_config.cmake.build_dir, project_config.cmake.build_type)
+
+  if not build_dir:is_dir() then
+    utils.notify(string.format('Build directory "%s" does not exist, you need to run "configure" task first', build_dir),
+      vim.log.levels.ERROR)
+    return nil
+  end
+
+  local targets = {}
+  local reply_dir = get_reply_dir(build_dir)
+
+  local codemodel_targets = get_codemodel_targets(reply_dir)
+  if not codemodel_targets then
+    return nil
+  end
+
+  for _, target in ipairs(codemodel_targets) do
+    local target_info = get_target_info(target, reply_dir)
+    local target_name = target_info['name']
+    local target_info = get_target_info(target, reply_dir)
+    if target_name:find('_autogen') == nil then
+      if target_info['type'] == 'EXECUTABLE' then
+        table.insert(targets, target_name)
+      end
     end
   end
 
@@ -177,13 +212,22 @@ end
 ---@return table?
 local function run(module_config, _)
   if not module_config.target then
-    utils.notify('No selected target, please set "target" parameter', vim.log.levels.ERROR)
+    utils.notify('No run target selected target, please set "target" parameter', vim.log.levels.ERROR)
     return nil
   end
 
   local build_dir = parse_dir(module_config.build_dir, module_config.build_type)
+  local cwd_dir = parse_dir(module_config.cwd_dir, module_config.build_type)
+
   if not build_dir:is_dir() then
-    utils.notify(string.format('Build directory "%s" does not exist, you need to run "configure" task first', build_dir), vim.log.levels.ERROR)
+    utils.notify(string.format('Build directory "%s" does not exist, you need to run "configure" task first', build_dir),
+      vim.log.levels.ERROR)
+    return nil
+  end
+
+  if not cwd_dir:is_dir() then
+    utils.notify(string.format('Working directory %s does not exist, create this directory before running', cwd_dir),
+      vim.log.levels.ERROR)
     return nil
   end
 
@@ -199,7 +243,7 @@ local function run(module_config, _)
 
   return {
     cmd = target_path.filename,
-    cwd = target_path:parent().filename,
+    cwd = cwd_dir.filename,
   }
 end
 
@@ -209,7 +253,8 @@ end
 local function debug(module_config, _)
   if module_config.build_type ~= 'Debug' and module_config.build_type ~= 'RelWithDebInfo' then
     utils.notify(
-      string.format('For debugging your "build_type" param should be set to "Debug" or "RelWithDebInfo", but your current build type is "%s"'),
+      string.format(
+      'For debugging your "build_type" param should be set to "Debug" or "RelWithDebInfo", but your current build type is "%s"'),
       module_config.build_type,
       vim.log.levels.ERROR
     )
@@ -252,8 +297,23 @@ local function open_build_dir(module_config, _)
   }
 end
 
+--- Task
+---@param module_config table
+---@return table
+local function open_cwd_dir(module_config, _)
+  local cwd_dir = parse_dir(module_config.cwd_dir, module_config.build_type)
+
+  return {
+    cmd = os == 'windows' and 'start' or 'xdg-open',
+    args = { cwd_dir.filename },
+    ignore_stdout = true,
+    ignore_stderr = true,
+  }
+end
+
 cmake.params = {
-  target = get_target_names,
+  -- target = get_target_names,
+  target = get_executable_target_names,
   build_type = { 'Debug', 'Release', 'RelWithDebInfo', 'MinSizeRel' },
   'cmd',
   'dap_name',
@@ -267,6 +327,7 @@ cmake.tasks = {
   debug = { build, debug },
   clean = clean,
   open_build_dir = open_build_dir,
+  open_cwd_dir = open_cwd_dir,
 }
 
 return cmake

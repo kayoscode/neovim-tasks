@@ -57,7 +57,8 @@ local function read_to_quickfix(errorformat)
 
           if found_newline then
             if not result_line then
-              return vim.api.nvim_err_writeln('Broken data thing due to: ' .. tostring(result_line) .. ' ' .. tostring(data))
+              return vim.api.nvim_err_writeln('Broken data thing due to: ' ..
+              tostring(result_line) .. ' ' .. tostring(data))
             end
 
             table.insert(lines, err and err or result_line)
@@ -171,7 +172,8 @@ function runner.chain_commands(task_name, commands, module_config, addition_args
   end
 
   if #commands ~= 1 then
-    job:after_success(vim.schedule_wrap(function() runner.chain_commands(task_name, vim.list_slice(commands, 2), module_config, addition_args, job) end))
+    job:after_success(vim.schedule_wrap(function() runner.chain_commands(task_name, vim.list_slice(commands, 2),
+        module_config, addition_args, job) end))
   end
   last_job = job
 end
