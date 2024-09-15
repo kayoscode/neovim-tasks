@@ -254,8 +254,8 @@ local function debug(module_config, _)
   if module_config.build_type ~= 'Debug' and module_config.build_type ~= 'RelWithDebInfo' then
     utils.notify(
       string.format(
-      'For debugging your "build_type" param should be set to "Debug" or "RelWithDebInfo", but your current build type is "%s"'),
-      module_config.build_type,
+      'For debugging your "build_type" param should be set to "Debug" or "RelWithDebInfo", but your current build type is "%s"',
+        module_config.build_type),
       vim.log.levels.ERROR
     )
     return nil
